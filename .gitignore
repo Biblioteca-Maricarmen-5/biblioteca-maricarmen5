@@ -9,6 +9,7 @@ db.sqlite3
 __pycache__
 usuaris/
 'react - Acceso directo.lnk'
+manage.py*
 # react files no han de pujar (està com a submodule)
 # els carregarem amb script de desplegament
 static
