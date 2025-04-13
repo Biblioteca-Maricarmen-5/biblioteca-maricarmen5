@@ -89,7 +89,7 @@ class Exemplar(models.Model):
     registre = models.CharField(max_length=100,null=True,blank=True)
     exclos_prestec = models.BooleanField(default=False)
     baixa = models.BooleanField(default=False)
-    centre = models.ForeignKey(Centre, on_delete=models.PROTECT)
+    centre = models.ForeignKey('Centre', on_delete=models.PROTECT)
     def __str__(self):
         return "REG:{} - {}".format(self.registre,self.cataleg.titol)
 
