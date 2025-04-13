@@ -11,11 +11,22 @@ class CategoriaAdmin(admin.ModelAdmin):
 
 
 class UsuariAdmin(UserAdmin):
+    # Añadir 'telefon' al formulario de edición y creación
     fieldsets = UserAdmin.fieldsets + (
-            ("Dades acadèmiques", {
-                'fields': ('centre','cicle','imatge'),
-            }),
+        ("Dades acadèmiques", {
+            'fields': ('centre', 'cicle', 'imatge', 'telefon'),  # Añadimos el campo 'telefon'
+        }),
     )
+    
+    # Añadimos 'telefon' en el formulario de creación
+    add_fieldsets = UserAdmin.add_fieldsets + (
+        (None, {
+            'fields': ('telefon',),  # Añadimos el campo 'telefon' en el formulario de creación
+        }),
+    )
+    
+    # Mostramos el campo 'telefon' en la lista de usuarios
+    list_display = UserAdmin.list_display + ('telefon',)
 
 class ExemplarsInline(admin.TabularInline):
 	model = Exemplar
@@ -49,8 +60,15 @@ class PrestecAdmin(admin.ModelAdmin):
     fields = ('exemplar','usuari','data_prestec','data_retorn','anotacions')
     list_display = ('exemplar','usuari','data_prestec','data_retorn')
 
+class ReservaAdmin(admin.ModelAdmin):
+    readonly_fields = ('data',)
+    fields = ('exemplar', 'usuari', 'data')
+    list_display = ('exemplar', 'usuari', 'data')
+
 admin.site.register(Centre)
 admin.site.register(Cicle)
-admin.site.register(Reserva)
+admin.site.register(Reserva, ReservaAdmin)
 admin.site.register(Prestec,PrestecAdmin)
 admin.site.register(Peticio)
+
+
