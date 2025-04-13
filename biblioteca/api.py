@@ -1,13 +1,29 @@
 from django.contrib.auth import authenticate, get_user_model
-from ninja import NinjaAPI, Schema, Field
-from ninja.security import HttpBasicAuth, HttpBearer
-from .models import *
 from django.shortcuts import get_object_or_404
-from typing import List, Optional, Union
+from django.core.files.storage import default_storage
+from django.conf import settings
+from django.http import JsonResponse
+from django.core.exceptions import ValidationError
+
+from ninja import NinjaAPI, Schema, Field, Router
+from ninja.security import HttpBasicAuth, HttpBearer
+from ninja.files import UploadedFile
+
 import secrets
 import hashlib
+import csv
+import traceback
+import os
+import re
+
+from typing import List, Optional, Union, Dict
+
+# Importación de modelos (si usas wildcard, de lo contrario importa solo lo que necesites)
+from .models import *
 
 api = NinjaAPI()
+
+router = Router()
 
 User = get_user_model()
 
@@ -227,3 +243,112 @@ def get_exemplars(request):
         )
 
     return result
+
+class UploadResponse(Schema):
+    mensaje: str
+    errores: Optional[List[Dict]] = None
+    usuarios_creados: Optional[int] = 0
+
+def validar_nombre(nombre):
+    # Ejemplo de validación: no vacío y solo letras
+    if not nombre:
+        raise ValueError("El nombre está vacío.")
+    if not nombre.isalpha():
+        raise ValueError(f"Nombre inválido: '{nombre}' contiene caracteres no permitidos.")
+
+def validar_telefono(telefono):
+    # Validación simple: debe ser numérico y contener al menos 9 dígitos
+    if not telefono or not telefono.isdigit() or len(telefono) < 9:
+        raise ValueError("Teléfono inválido. Debe contener al menos 9 dígitos numéricos.")
+
+@api.post("/subir-documento/", response={200: UploadResponse, 500: UploadResponse})
+def subir_documento(request, archivo: UploadedFile):
+    file_path = default_storage.save(f"temp/{archivo.name}", archivo)
+    full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+
+    registros: List[UsuariCSV] = []
+    errores: List[Dict] = []
+    usuarios_creados = 0
+
+    try:
+        with open(full_path, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                cleaned_row = {key.strip(): (value.strip() if value is not None else "") for key, value in row.items()}
+
+                if not any(cleaned_row.values()):
+                    continue
+
+                email = (cleaned_row.get("email") or "").strip().replace(' ', '').lower()
+
+                if not email or "@" not in email:
+                    errores.append({"fila": cleaned_row, "error": "Email vacío o inválido"})
+                    continue
+
+                if Usuari.objects.filter(username=email).exists():
+                    errores.append({"fila": cleaned_row, "error": f"El email {email} ya existe."})
+                    continue
+
+                nom = (cleaned_row.get("nom") or "").strip()
+                cognom1 = (cleaned_row.get("cognom1") or "").strip()
+                cognom2 = (cleaned_row.get("cognom2") or "").strip()
+                telefon = cleaned_row.get("telefon", "")
+                centre_nom = cleaned_row.get("centre", "")
+                cicle_nom = cleaned_row.get("grup", "")
+
+                if not all([nom, cognom1, cognom2, telefon, centre_nom, cicle_nom]):
+                    errores.append({"fila": cleaned_row, "error": "Faltan campos obligatorios."})
+                    continue
+
+                try:
+                    validar_nombre(nom)
+                    validar_nombre(cognom1)
+                    if cognom2:
+                        validar_nombre(cognom2)
+                    validar_telefono(telefon)
+
+                    centre, _ = Centre.objects.get_or_create(nom=centre_nom)
+                    cicle, _ = Cicle.objects.get_or_create(nom=cicle_nom)
+
+                    Usuari.objects.create_user(
+                        username=email,
+                        email=email,
+                        first_name=nom,
+                        last_name=f"{cognom1} {cognom2}",
+                        telefon=telefon,
+                        centre=centre,
+                        cicle=cicle,
+                        password="1234"
+                    )
+                    usuarios_creados += 1
+
+                    registros.append(UsuariCSV(
+                        nom=nom,
+                        cognom1=cognom1,
+                        cognom2=cognom2,
+                        email=email,
+                        telefon=telefon,
+                        centre=centre_nom,
+                        grup=cicle_nom
+                    ))
+
+                except (ValidationError, ValueError) as e:
+                    errores.append({"fila": cleaned_row, "error": str(e)})
+                    continue
+
+    except Exception as e:
+        print("🔥 Error procesando CSV:", e)
+        traceback.print_exc()
+        return 500, {"mensaje": "Error interno del servidor."}
+
+    finally:
+        try:
+            os.remove(full_path)
+        except:
+            pass
+
+    return {
+        "mensaje": f"Proceso completado. {usuarios_creados} usuario(s) creados.",
+        "errores": errores,
+        "usuarios_creados": usuarios_creados
+    }
