@@ -4,8 +4,46 @@ from ninja.security import HttpBasicAuth, HttpBearer
 from .models import *
 from typing import List, Optional, Union, Literal
 import secrets
+from datetime import date
+
 
 api = NinjaAPI()
+
+#pruebas
+@api.get("/ping")
+def ping():
+    return {"message": "pong"}
+
+
+
+
+
+
+class LlibreSchema(Schema):
+    id: int
+    titol: str
+    titol_original: Optional[str]
+    autor: Optional[str]
+    CDU: Optional[str]
+    signatura: Optional[str]
+    data_edicio: Optional[date]
+    resum: Optional[str]
+    anotacions: Optional[str]
+    mides: Optional[str]
+    tags: list[int]  # o list[str] si estás mostrando nombres de tags en lugar de IDs
+
+    ISBN: Optional[str]
+    editorial: Optional[str]
+    colleccio: Optional[str]
+    lloc: Optional[str]
+    pais: Optional[int]  # si devuelves ID, si es string cambia a Optional[str]
+    llengua: Optional[int]
+    numero: Optional[int]
+    volums: Optional[int]
+    pagines: Optional[int]
+    info_url: Optional[str]
+    preview_url: Optional[str]
+    thumbnail_url: Optional[str]
 
 
 # Autenticació bàsica

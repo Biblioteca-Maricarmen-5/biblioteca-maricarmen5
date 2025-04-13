@@ -21,8 +21,11 @@ from ninja import NinjaAPI
 
 from biblioteca.api import api
 
+handler404 = 'biblioteca.views.custom_404' 
+handler403 = 'biblioteca.views.custom_403'
+
 urlpatterns = [
     path('', views.index),
     path('admin/', admin.site.urls),
     path("api/", api.urls),
-]
+]# + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

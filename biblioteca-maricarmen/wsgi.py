@@ -8,9 +8,13 @@ https://docs.djangoproject.com/en/4.2/howto/deployment/wsgi/
 """
 
 import os
+import sys
 
-from django.core.wsgi import get_wsgi_application
+sys.path.insert(0, '/var/www/html/biblioteca-maricarmen5')
+
+#from django.core.wsgi import get_wsgi_application
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'biblioteca-maricarmen.settings')
 
+from django.core.wsgi import get_wsgi_application
 application = get_wsgi_application()

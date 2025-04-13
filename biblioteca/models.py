@@ -56,6 +56,9 @@ class Llibre(Cataleg):
     preview_url = models.CharField(max_length=200,blank=True,null=True)
     thumbnail_url = models.CharField(max_length=200,blank=True,null=True)
 
+    
+
+
 class Revista(Cataleg):
     class Meta:
         verbose_name_plural = "Revistes"
