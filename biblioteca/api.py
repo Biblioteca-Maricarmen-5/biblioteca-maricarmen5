@@ -20,6 +20,7 @@ from typing import List, Optional, Union, Dict
 
 # Importación de modelos (si usas wildcard, de lo contrario importa solo lo que necesites)
 from .models import *
+from datetime import date
 
 api = NinjaAPI()
 
@@ -352,3 +353,36 @@ def subir_documento(request, archivo: UploadedFile):
         "errores": errores,
         "usuarios_creados": usuarios_creados
     }
+
+
+
+
+
+# prestamos
+
+class PrestecOut(Schema):
+    id: int
+    data_prestec: date
+    data_retorn: Optional[date] = None
+    anotacions: Optional[str] = None
+    exemplar_titol: str
+
+class PrestecsRequest(Schema):
+    username: str
+
+@api.post("/prestecs", response=List[PrestecOut])
+def get_prestecs(request, payload: PrestecsRequest):
+    username = payload.username
+    qs = Prestec.objects.filter(usuari__username=username).order_by("-data_prestec")
+    
+    results = []
+    for prestec in qs:
+        exemplar_titol = prestec.exemplar.cataleg.titol if prestec.exemplar and prestec.exemplar.cataleg else "N/A"
+        results.append({
+            "id": prestec.id,
+            "data_prestec": prestec.data_prestec,
+            "data_retorn": prestec.data_retorn,
+            "anotacions": prestec.anotacions,
+            "exemplar_titol": exemplar_titol,
+        })
+    return results
