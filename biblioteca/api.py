@@ -191,10 +191,18 @@ class LlibreIn(Schema):
 @api.get("/llibres", response=List[LlibreOut])
 @api.get("/llibres/", response=List[LlibreOut])
 #@api.get("/llibres/", response=List[LlibreOut], auth=AuthBearer())
-def get_llibres(request):
-    qs = Llibre.objects.all()
-    return qs
+def get_llibres(request, search: str = None):
 
+    # Devuelve todos los llibres. Si se proporciona el parámetro 'search',
+    # se filtran los llibres cuyo titol o autor contenga el término de búsqueda.
+
+    if search:
+        qs = Llibre.objects.filter(
+            Q(titol__icontains=search) | Q(autor__icontains=search)
+        )
+    else:
+        qs = Llibre.objects.all()
+    return qs
 @api.post("/llibres/")
 def post_llibres(request, payload: LlibreIn):
     llibre = Llibre.objects.create(**payload.dict())
@@ -202,6 +210,13 @@ def post_llibres(request, payload: LlibreIn):
         "id": llibre.id,
         "titol": llibre.titol
     }
+
+
+
+@api.get("/llibres/{id}", response=LlibreOut)
+def get_llibre_by_id(request, id: int):
+    llibre = get_object_or_404(Llibre, id=id)
+    return llibre
 
 @api.get("/exemplars", response=List[ExemplarOut])
 @api.get("/exemplars/", response=List[ExemplarOut])
