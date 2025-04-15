@@ -2,7 +2,6 @@ import os
 import random
 from datetime import datetime, timedelta
 from django.core.management.base import BaseCommand
-from django.core.files import File
 from django.utils.timezone import make_aware
 from django.contrib.auth.hashers import make_password
 from faker import Faker
@@ -19,7 +18,7 @@ fake.add_provider(misc)
 
 from biblioteca.models import (
     Categoria, Pais, Llengua, Llibre, Exemplar, Usuari, Prestec, Reserva,
-    Centre, Cicle, Revista, CD, DVD, BR, Dispositiu, Imatge
+    Centre, Grup, Revista, CD, DVD, BR, Dispositiu, Imatge, Autor, Editorial
 )
 
 def limpiar_db():
@@ -33,10 +32,9 @@ def limpiar_db():
     except Exception as e:
         print("No se pudo ajustar las constraints:", e)
     
-    models = [Categoria, Pais, Llengua, Llibre, Exemplar, Usuari, Prestec, Reserva, Centre, Cicle, Revista, CD, DVD, BR, Dispositiu]
-    
-    for model in models:
-        model.objects.all().delete()
+    modelos = [Categoria, Pais, Llengua, Llibre, Exemplar, Usuari, Prestec, Reserva, Centre, Grup, Revista, CD, DVD, BR, Dispositiu]
+    for modelo in modelos:
+        modelo.objects.all().delete()
     print("Base de datos limpiada")
 
 def crear_categorias():
@@ -48,14 +46,13 @@ def crear_categorias():
     
     for cat in categorias_principales:
         categoria = Categoria.objects.create(nom=cat)
-        
-        # Subcategorías nivel 1
+        # Creación de subcategorías de nivel 1
         for _ in range(random.randint(2, 5)):
             subcat = Categoria.objects.create(
                 nom=f"{cat} - {fake.word().capitalize()}",
                 parent=categoria
             )
-            # Subcategorías nivel 2 (30% de probabilidad)
+            # Con 30% de probabilidad, se crean subcategorías de nivel 2
             if random.random() < 0.3:
                 for __ in range(random.randint(1, 3)):
                     Categoria.objects.create(
@@ -86,7 +83,10 @@ def crear_autores_y_libros():
     if not default_centre:
         default_centre = Centre.objects.create(nom="Centro por defecto")
 
-    autores = [fake.name() for _ in range(100)]
+    # Crear instancias de Autor y Editorial
+    autors = [Autor.objects.create(nom=fake.name()) for _ in range(100)]
+    editorials = [Editorial.objects.create(nom=fake.company()) for _ in range(20)]
+    
     paises = list(Pais.objects.all())
     lenguas = list(Llengua.objects.all())
     categorias = list(Categoria.objects.all())
@@ -102,7 +102,8 @@ def crear_autores_y_libros():
                 used_isbns.add(isbn)
                 return isbn
 
-    for autor in autores:
+    # Se crean libros para cada autor creado
+    for autor in autors:
         num_libros = random.randint(1, 10)
         for _ in range(num_libros):
             if libros_creados >= 1000:
@@ -119,11 +120,11 @@ def crear_autores_y_libros():
                 anotacions=fake.paragraph(nb_sentences=2) if random.random() < 0.7 else None,
                 mides=f"{random.randint(15, 30)}x{random.randint(20, 40)} cm",
                 ISBN=get_unique_isbn(),
-                editorial=fake.company(),
+                editorial=random.choice(editorials),  # Se asigna un objeto Editorial
                 colleccio=fake.word().title() if random.random() < 0.5 else None,
                 lloc=fake.city(),
                 pais=random.choice(paises),
-                llengua=random.choice(lenguas),  # Corregido: usamos "lenguas"
+                llengua=random.choice(lenguas),
                 numero=random.randint(1, 10) if random.random() < 0.3 else None,
                 volums=random.randint(1, 5) if random.random() < 0.2 else None,
                 pagines=random.randint(50, 800) if random.random() < 0.9 else None,
@@ -133,6 +134,8 @@ def crear_autores_y_libros():
             )
             libro.tags.set(random.sample(categorias, random.randint(1, 4)))
             libros_creados += 1
+
+            # Cada libro tendrá 5 ejemplares (se ajusta para no superar el objetivo)
             ejemplares_por_libro = 5
             if ejemplares_creados + ejemplares_por_libro > ejemplares_objetivo:
                 ejemplares_por_libro = ejemplares_objetivo - ejemplares_creados
@@ -154,8 +157,9 @@ def crear_autores_y_libros():
         if libros_creados >= 1000 or ejemplares_creados >= ejemplares_objetivo:
             break
 
+    # Si aún no se han creado 1000 libros, se crean libros adicionales
     while libros_creados < 1000:
-        autor = random.choice(autores)
+        autor = random.choice(autors)
         titulo = fake.sentence(nb_words=3).replace('.', '').title()
         libro = Llibre.objects.create(
             titol=titulo,
@@ -168,7 +172,7 @@ def crear_autores_y_libros():
             anotacions=fake.paragraph(nb_sentences=2) if random.random() < 0.7 else None,
             mides=f"{random.randint(15, 30)}x{random.randint(20, 40)} cm",
             ISBN=get_unique_isbn(),
-            editorial=fake.company(),
+            editorial=random.choice(editorials),
             colleccio=fake.word().title() if random.random() < 0.5 else None,
             lloc=fake.city(),
             pais=random.choice(paises),
@@ -183,6 +187,7 @@ def crear_autores_y_libros():
         libro.tags.set(random.sample(categorias, random.randint(1, 4)))
         libros_creados += 1
     
+    # Crear ejemplares adicionales en caso de que aún no se alcance el objetivo
     if ejemplares_creados < ejemplares_objetivo:
         libros = list(Llibre.objects.all())
         while ejemplares_creados < ejemplares_objetivo:
@@ -205,6 +210,7 @@ def crear_otros_materiales():
     categorias = list(Categoria.objects.all())
     paises = list(Pais.objects.all())
     lenguas = list(Llengua.objects.all())
+    
     # Aseguramos un centro por defecto
     default_centre = Centre.objects.first()
     if not default_centre:
@@ -217,7 +223,7 @@ def crear_otros_materiales():
             data_edicio=fake.date_between(start_date='-20y', end_date='today'),
             resum=fake.paragraph(nb_sentences=3),
             ISSN=fake.bothify("####-####"),
-            editorial=fake.company(),
+            editorial=fake.company(),  # Campo CharField, se asigna un string
             lloc=fake.city(),
             pais=random.choice(paises),
             llengua=random.choice(lenguas),
@@ -234,15 +240,14 @@ def crear_otros_materiales():
                 centre=default_centre
             )
     
-    # CDs (30 unidades)
-    estilos_musicales = ["Pop", "Rock", "Clásica", "Jazz", "Electrónica", "Hip-Hop", "Flamenco", "Salsa"]
+    # CDs (30 unidades) – en este caso, el campo "discografica" es un CharField
     for i in range(30):
         cd = CD.objects.create(
             titol=f"{fake.word().capitalize()} {fake.word().capitalize()}",
             autor=fake.name(),
             data_edicio=fake.date_between(start_date='-30y', end_date='today'),
             discografica=fake.company(),
-            estil=random.choice(estilos_musicales),
+            estil=random.choice(["Pop", "Rock", "Clásica", "Jazz", "Electrónica", "Hip-Hop", "Flamenco", "Salsa"]),
             duracio=make_aware(datetime.now() + timedelta(minutes=random.randint(30, 120)))
         )
         cd.tags.set(random.sample(categorias, random.randint(1, 2)))
@@ -268,10 +273,10 @@ def crear_centros_y_ciclos():
     areas = ["Informática", "Administración", "Comercio", "Sanidad", "Diseño"]
     for area in areas:
         for nivel in ["GS", "GM"]:
-            cicle = Cicle.objects.create(
+            grup = Grup.objects.create(
                 nom=f"{nivel} en {area} {fake.word().capitalize()}"
             )
-            ciclos.append(cicle)
+            ciclos.append(grup)
     
     return centros, ciclos
 
@@ -288,7 +293,7 @@ def crear_usuarios_y_prestamos():
             first_name=fake.first_name(),
             last_name=fake.last_name(),
             centre=random.choice(centros),
-            cicle=random.choice(ciclos),
+            grup=random.choice(ciclos),
             auth_token=fake.md5()
         )
         usuarios.append(usuario)

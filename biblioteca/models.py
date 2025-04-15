@@ -26,10 +26,18 @@ class Llengua(models.Model):
     def __str__(self):
         return self.nom
 
+
+# creacion para autocompletar de admin.py
+
+class Autor(models.Model):
+    nom = models.CharField(max_length=200, blank=True, null=True)
+
+
+
 class Cataleg(models.Model):
     titol = models.CharField(max_length=200)
     titol_original = models.CharField(max_length=200, blank=True, null=True)
-    autor = models.CharField(max_length=200, blank=True, null=True)
+    autor = models.ForeignKey(Autor, on_delete=models.SET_NULL, null=True, blank=True)
     CDU = models.CharField(max_length=40, blank=True, null=True)
     signatura = models.CharField(max_length=40, blank=True, null=True)
     data_edicio = models.DateField(null=True,blank=True)
@@ -41,9 +49,15 @@ class Cataleg(models.Model):
     	return 0
 
 
+# creacion para el autocompletado de admin.py
+
+class Editorial(models.Model):
+    nom = models.CharField(max_length=100, blank=True, null=True)
+
+
 class Llibre(Cataleg):
     ISBN = models.CharField(max_length=13, blank=True, null=True)
-    editorial = models.CharField(max_length=100, blank=True, null=True)
+    editorial = models.ForeignKey(Editorial, on_delete=models.SET_NULL, null=True, blank=True)
     colleccio = models.CharField(max_length=100, blank=True, null=True)
     lloc = models.CharField(max_length=100, blank=True, null=True)
     pais = models.ForeignKey(Pais, on_delete=models.SET_NULL, blank=True, null=True)
