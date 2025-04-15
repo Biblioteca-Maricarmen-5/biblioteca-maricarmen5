@@ -101,7 +101,7 @@ class UserProfileResponse(Schema):
     nombre: str
     email: str
     centre: Optional[str] = None
-    cicle: Optional[str] = None
+    grup: Optional[str] = None
     imatge: Optional[str] = None
     grupos: list[str]
     telefon: Optional[str] = None
@@ -111,7 +111,7 @@ def perfil(request, data: UserProfileRequest):
     user = get_object_or_404(User, username=data.username)
     nombre = user.get_full_name() if user.first_name or user.last_name else ""
     centre_name = user.centre.nom if user.centre else None
-    cicle_name = user.cicle.nom if user.cicle else None
+    grup_name = user.grup.nom if user.grup else None
     try:
         imatge_url = user.imatge.url if user.imatge else None
     except ValueError:
@@ -123,7 +123,7 @@ def perfil(request, data: UserProfileRequest):
         "nombre": nombre,
         "email": user.email,
         "centre": centre_name,
-        "cicle": cicle_name,
+        "grup": grup_name,
         "imatge": imatge_url,
         "grupos": grupos,
         "telefon": telefon,
@@ -310,9 +310,9 @@ def subir_documento(request, archivo: UploadedFile):
                 cognom2 = (cleaned_row.get("cognom2") or "").strip()
                 telefon = cleaned_row.get("telefon", "")
                 centre_nom = cleaned_row.get("centre", "")
-                cicle_nom = cleaned_row.get("grup", "")
+                grup_nom = cleaned_row.get("grup", "")
 
-                if not all([nom, cognom1, cognom2, telefon, centre_nom, cicle_nom]):
+                if not all([nom, cognom1, cognom2, telefon, centre_nom, grup_nom]):
                     errores.append({"fila": cleaned_row, "error": "Faltan campos obligatorios."})
                     continue
 
@@ -324,7 +324,7 @@ def subir_documento(request, archivo: UploadedFile):
                     validar_telefono(telefon)
 
                     centre, _ = Centre.objects.get_or_create(nom=centre_nom)
-                    cicle, _ = Cicle.objects.get_or_create(nom=cicle_nom)
+                    grup, _ = Grup.objects.get_or_create(nom=grup_nom)
 
                     Usuari.objects.create_user(
                         username=email,
@@ -333,7 +333,7 @@ def subir_documento(request, archivo: UploadedFile):
                         last_name=f"{cognom1} {cognom2}",
                         telefon=telefon,
                         centre=centre,
-                        cicle=cicle,
+                        grup=grup,
                         password="1234"
                     )
                     usuarios_creados += 1
@@ -345,7 +345,7 @@ def subir_documento(request, archivo: UploadedFile):
                         email=email,
                         telefon=telefon,
                         centre=centre_nom,
-                        grup=cicle_nom
+                        grup=grup_nom
                     ))
 
                 except (ValidationError, ValueError) as e:

@@ -15,7 +15,7 @@ class UsuariAdmin(UserAdmin):
     # Añadir 'telefon' al formulario de edición y creación
     fieldsets = UserAdmin.fieldsets + (
         ("Dades acadèmiques", {
-            'fields': ('centre', 'cicle', 'imatge', 'telefon'),
+            'fields': ('centre', 'grup', 'imatge', 'telefon'),
         }),
     )
     # Añadimos 'telefon' en el formulario de creación
@@ -78,7 +78,7 @@ admin.site.register(Revista)
 admin.site.register(Dispositiu)
 admin.site.register(Imatge)
 admin.site.register(Centre)
-admin.site.register(Cicle)
+admin.site.register(Grup)
 admin.site.register(Reserva, ReservaAdmin)
 admin.site.register(Prestec, PrestecAdmin)
 admin.site.register(Peticio)

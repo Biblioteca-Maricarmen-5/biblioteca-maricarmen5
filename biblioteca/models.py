@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser, Group
+from django.contrib.auth.models import AbstractUser, Group as Rol
 from django.utils.timezone import now
 from django.contrib.auth.hashers import make_password
 
@@ -106,7 +106,7 @@ class Centre(models.Model):
     def __str__(self):
         return self.nom
 
-class Cicle(models.Model):
+class Grup(models.Model):
     nom = models.CharField(max_length=200)
 
     def __str__(self):
@@ -114,7 +114,7 @@ class Cicle(models.Model):
 
 class Usuari(AbstractUser):
     centre = models.ForeignKey(Centre,on_delete=models.SET_NULL,null=True,blank=True)
-    cicle = models.ForeignKey(Cicle,on_delete=models.SET_NULL,null=True,blank=True)
+    grup = models.ForeignKey(Grup,on_delete=models.SET_NULL,null=True,blank=True)
     imatge = models.ImageField(upload_to='usuaris/',null=True,blank=True)
     auth_token = models.CharField(max_length=32,blank=True,null=True)
     telefon = models.CharField(max_length=20,blank=True,null=True)
@@ -127,8 +127,8 @@ class Usuari(AbstractUser):
 
         # Si es nuevo, añadimos el usuario al grupo "usuarios"
         if is_new:
-            group, created = Group.objects.get_or_create(name='usuari')
-            self.groups.add(group)
+            rol, created = Rol.objects.get_or_create(name='usuari')
+            self.groups.add(rol)
     def __str__(self):
         return self.username
 
