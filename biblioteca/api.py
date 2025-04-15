@@ -169,11 +169,13 @@ def actualizar_perfil(request, data: PerfilUpdateSchema):
 class CatalegOut(Schema):
     id: int
     titol: str
-    autor: Optional[str]
+    def autor(self) -> Optional[str]:
+        return self._obj.autor.nom if self._obj.autor else None
 
 class LlibreOut(CatalegOut):
-    editorial: Optional[str]
     ISBN: Optional[str]
+    def editorial(self) -> Optional[str]:
+        return self._obj.editorial.nom if self._obj.editorial else None
 
 class ExemplarOut(Schema):
     id: int
