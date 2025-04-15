@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, Group as Rol
 from django.utils.timezone import now
 from django.contrib.auth.hashers import make_password
 
@@ -26,10 +26,18 @@ class Llengua(models.Model):
     def __str__(self):
         return self.nom
 
+
+# creacion para autocompletar de admin.py
+
+class Autor(models.Model):
+    nom = models.CharField(max_length=200, blank=True, null=True)
+
+
+
 class Cataleg(models.Model):
     titol = models.CharField(max_length=200)
     titol_original = models.CharField(max_length=200, blank=True, null=True)
-    autor = models.CharField(max_length=200, blank=True, null=True)
+    autor = models.ForeignKey(Autor, on_delete=models.SET_NULL, null=True, blank=True)
     CDU = models.CharField(max_length=40, blank=True, null=True)
     signatura = models.CharField(max_length=40, blank=True, null=True)
     data_edicio = models.DateField(null=True,blank=True)
@@ -39,12 +47,17 @@ class Cataleg(models.Model):
     tags = models.ManyToManyField(Categoria,blank=True)
     def exemplars(self):
     	return 0
-    def __str__(self):
-        return self.titol
+
+
+# creacion para el autocompletado de admin.py
+
+class Editorial(models.Model):
+    nom = models.CharField(max_length=100, blank=True, null=True)
+
 
 class Llibre(Cataleg):
     ISBN = models.CharField(max_length=13, blank=True, null=True)
-    editorial = models.CharField(max_length=100, blank=True, null=True)
+    editorial = models.ForeignKey(Editorial, on_delete=models.SET_NULL, null=True, blank=True)
     colleccio = models.CharField(max_length=100, blank=True, null=True)
     lloc = models.CharField(max_length=100, blank=True, null=True)
     pais = models.ForeignKey(Pais, on_delete=models.SET_NULL, blank=True, null=True)
@@ -91,8 +104,9 @@ class Dispositiu(Cataleg):
 class Exemplar(models.Model):
     cataleg = models.ForeignKey(Cataleg, on_delete=models.CASCADE)
     registre = models.CharField(max_length=100,null=True,blank=True)
-    exclos_prestec = models.BooleanField(default=True)
+    exclos_prestec = models.BooleanField(default=False)
     baixa = models.BooleanField(default=False)
+    centre = models.ForeignKey('Centre', on_delete=models.PROTECT)
     def __str__(self):
         return "REG:{} - {}".format(self.registre,self.cataleg.titol)
 
@@ -106,14 +120,34 @@ class Imatge(models.Model):
 class Centre(models.Model):
     nom = models.CharField(max_length=200)
 
-class Cicle(models.Model):
+    def __str__(self):
+        return self.nom
+
+class Grup(models.Model):
     nom = models.CharField(max_length=200)
+
+    def __str__(self):
+        return self.nom
 
 class Usuari(AbstractUser):
     centre = models.ForeignKey(Centre,on_delete=models.SET_NULL,null=True,blank=True)
-    cicle = models.ForeignKey(Cicle,on_delete=models.SET_NULL,null=True,blank=True)
+    grup = models.ForeignKey(Grup,on_delete=models.SET_NULL,null=True,blank=True)
     imatge = models.ImageField(upload_to='usuaris/',null=True,blank=True)
     auth_token = models.CharField(max_length=32,blank=True,null=True)
+    telefon = models.CharField(max_length=20,blank=True,null=True)
+    def save(self, *args, **kwargs):
+        # Si el usuario no tiene ID (se está creando)
+        is_new = self.pk is None
+
+        # Primero guarda el objeto para tener asignado un ID.
+        super().save(*args, **kwargs)
+
+        # Si es nuevo, añadimos el usuario al grupo "usuarios"
+        if is_new:
+            rol, created = Rol.objects.get_or_create(name='usuari')
+            self.groups.add(rol)
+    def __str__(self):
+        return self.username
 
 class Reserva(models.Model):
     class Meta:
@@ -157,3 +191,8 @@ class Log(models.Model):
         return f"{self.accio} - {self.tipus}"
 
 
+
+#para la manipulacion de documentos
+class Documento(models.Model):
+    archivo = models.FileField(upload_to="documentos/")
+    fecha_subida = models.DateTimeField(auto_now_add=True)

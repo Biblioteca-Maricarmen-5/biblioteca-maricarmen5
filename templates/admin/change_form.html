@@ -1,19 +1,21 @@
 {% extends "admin/base_site.html" %}
 {% load i18n admin_urls static admin_modify %}
 
-{% block extrahead %}{{ block.super }}
-<script src="{% url 'admin:jsi18n' %}"></script>
-{{ media }}
-<script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
-<script src="https://code.jquery.com/ui/1.14.1/jquery-ui.js"></script>{% endblock %}
+{% block extrahead %}
+  {{ block.super }}
+  <script src="{% url 'admin:jsi18n' %}"></script>
+  {{ media }}
+  <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
+  <script src="https://code.jquery.com/ui/1.14.1/jquery-ui.js"></script>
+{% endblock %}
 
 {% block extrastyle %}
-{{ block.super }}
-<link rel="stylesheet" href="{% static "admin/css/forms.css" %}">
-<link rel="stylesheet" href="https://code.jquery.com/ui/1.14.1/themes/base/jquery-ui.css">
-<style type="text/css">
-    
-</style>
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static "admin/css/forms.css" %}">
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.14.1/themes/base/jquery-ui.css">
+  <style type="text/css">
+    /* Puedes agregar estilos personalizados aquí */
+  </style>
 {% endblock %}
 
 {% block coltype %}colM{% endblock %}
@@ -21,224 +23,260 @@
 {% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-form{% endblock %}
 
 {% if not is_popup %}
-{% block breadcrumbs %}
-<div class="breadcrumbs">
-<a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
-&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
-&rsaquo; {% if has_view_permission %}<a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>{% else %}{{ opts.verbose_name_plural|capfirst }}{% endif %}
-&rsaquo; {% if add %}{% blocktranslate with name=opts.verbose_name %}Add {{ name }}{% endblocktranslate %}{% else %}{{ original|truncatewords:"18" }}{% endif %}
+  {% block breadcrumbs %}
+    <div class="breadcrumbs">
+      <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+      &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+      &rsaquo; {% if has_view_permission %}<a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>{% else %}{{ opts.verbose_name_plural|capfirst }}{% endif %}
+      &rsaquo; {% if add %}{% blocktranslate with name=opts.verbose_name %}Add {{ name }}{% endblocktranslate %}{% else %}{{ original|truncatewords:"18" }}{% endif %}
+    </div>
+  {% endblock %}
+{% endif %}
+
+{% block content %}
+<div id="content-main">
+
+  {% block object-tools %}
+  <ul class="object-tools">
+    {% if '/admin/biblioteca/llibre/' in request.path %}
+      <li>
+        <script type="text/javascript">
+          // Función para introducir el ISBN manualmente y llamar a la función integrada
+          function introduccio_manual_isbn() {
+              var isbn = prompt("Introdueix el ISBN");
+              if(isbn) {
+                  carrega_info_isbn(isbn);
+              }
+          }
+          
+          // Función integrada: intenta consultar Google Books y, en caso de fallo, usa OpenLibrary
+          function carrega_info_isbn(isbn) {
+              $.ajax({
+                method: "GET",
+                url: "https://www.googleapis.com/books/v1/volumes?q=isbn:" + isbn,
+                dataType: "json"
+              }).done(function (msg) {
+                  if(msg.items && msg.items.length > 0) {
+                      var info = msg.items[0].volumeInfo;
+                      populateFieldsGoogle(isbn, info);
+                  } else {
+                      buscarAmbOpenLibrary(isbn);
+                  }
+              }).fail(function () {
+                  buscarAmbOpenLibrary(isbn);
+              });
+          }
+          
+          // Función para buscar con OpenLibrary en caso de que Google no devuelva resultados
+          function buscarAmbOpenLibrary(isbn) {
+              $.ajax({
+                method: "GET",
+                url: "https://openlibrary.org/api/books?bibkeys=ISBN:" + isbn + "&jscmd=details&format=json",
+                dataType: "json"
+              }).done(function (msg) {
+                  var llibre = msg["ISBN:" + isbn];
+                  if(!llibre || !llibre.details) {
+                      alert("No s'ha trobat l'ISBN amb cap API");
+                      return;
+                  }
+                  populateFieldsOpenLibrary(isbn, llibre);
+              }).fail(function () {
+                  alert("Error en carregar la informació de l'ISBN");
+              });
+          }
+          
+          // Función para poblar el formulario con la información procedente de Google Books
+          function populateFieldsGoogle(isbn, info) {
+              $('#id_ISBN').val(isbn);
+              if(info.infoLink) $('#id_info_url').val(info.infoLink);
+              if(info.previewLink) $('#id_preview_url').val(info.previewLink);
+              if(info.imageLinks && info.imageLinks.thumbnail) $('#id_thumbnail_url').val(info.imageLinks.thumbnail);
+              if(info.title) $('#id_titol').val(info.title);
+              if(info.subtitle) $('#id_titol_original').val(info.subtitle);
+              if(info.pageCount) $('#id_pagines').val(info.pageCount);
+              if(info.publisher) $('#id_editorial').val(info.publisher);
+              if(info.authors && info.authors.length > 0) $('#id_autor').val(info.authors[0]);
+              if(info.publishedDate) {
+                  var data = new Date(info.publishedDate);
+                  var data2 = data.getDate() + "/" + (data.getMonth()+1) + "/" + data.getFullYear();
+                  $('#id_data_edicio').val(data2);
+              }
+              if(info.description) {
+                   if(typeof info.description === 'object' && info.description.value) {
+                       $('#id_resum').val(info.description.value);
+                   } else {
+                       $('#id_resum').val(info.description);
+                   }
+              }
+          }
+          
+          // Función para poblar el formulario con la información procedente de OpenLibrary
+          function populateFieldsOpenLibrary(isbn, llibre) {
+              $('#id_ISBN').val(isbn);
+              if(llibre.info_url) $('#id_info_url').val(llibre.info_url);
+              if(llibre.preview_url) $('#id_preview_url').val(llibre.preview_url);
+              if(llibre.thumbnail_url) $('#id_thumbnail_url').val(llibre.thumbnail_url);
+              var details = llibre.details;
+              if(details.title) $('#id_titol').val(details.title);
+              if(details.full_title) $('#id_titol').val(details.full_title);
+              if(details.translation_of) $('#id_titol_original').val(details.translation_of);
+              if(details.number_of_pages) $('#id_pagines').val(details.number_of_pages);
+              if(details.publishers) $('#id_editorial').val(details.publishers[0]);
+              if(details.authors) $('#id_autor').val(details.authors[0].name);
+              if(details.publish_date) {
+                   let data = new Date(details.publish_date);
+                   let data2 = data.getDate() + "/" + (data.getMonth()+1) + "/" + data.getFullYear();
+                   $('#id_data_edicio').val(data2);
+              }
+              if(details.description) {
+                   if(typeof details.description === "object" && details.description.value){
+                       $('#id_resum').val(details.description.value);
+                   } else {
+                       $('#id_resum').val(details.description);
+                   }
+              }
+          }
+          
+          // Funciones para detección de código de barras mediante cámara
+          let stream = null;
+          async function startBarcodeDetection() {
+              const videoElement = document.getElementById('video');
+              const resultElement = document.getElementById('result');
+              const barcodeElement = document.getElementById('barcode_detectat');
+              if (!('BarcodeDetector' in window)) {
+                  resultElement.textContent = 'La teva navegadora no suporta la Barcode Detection API.';
+                  resultElement.classList.add('error');
+                  return;
+              }
+              const barcodeDetector = new BarcodeDetector();
+              try {
+                  stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                  videoElement.srcObject = stream;
+                  await videoElement.play();
+                  async function detectBarcode() {
+                      if (videoElement.readyState !== 4) {
+                          console.error('El flux de vídeo no està llest.');
+                          return;
+                      }
+                      try {
+                          const barcodes = await barcodeDetector.detect(videoElement);
+                          if (barcodes.length > 0) {
+                              resultElement.textContent = `Codi detectat: ${barcodes[0].rawValue}`;
+                              barcodeElement.textContent = barcodes[0].rawValue;
+                          } else {
+                              resultElement.textContent = 'Escanejant...';
+                          }
+                      } catch (error) {
+                          console.error('Error en la detecció de codis:', error);
+                          resultElement.textContent = 'Error en la detecció de codis.';
+                          resultElement.classList.add('error');
+                      }
+                      requestAnimationFrame(detectBarcode);
+                  }
+                  detectBarcode();
+              } catch (error) {
+                  console.error('Error al accedir a la càmera:', error);
+                  resultElement.textContent = 'No es pot accedir a la càmera.';
+                  resultElement.classList.add('error');
+              }
+          }
+          
+          function atura_video() {
+              if (stream) {
+                  const tracks = stream.getTracks();
+                  tracks.forEach(track => track.stop());
+                  $('video')[0].srcObject = null;
+                  $('result').html('Captura aturada.');
+                  stream = null;
+              }
+          }
+          
+          // En el diálogo se utiliza la función integrada al pulsar el botón: se obtiene el ISBN y se llama a carrega_info_isbn
+          function llegeix_codi_de_barres_amb_camera() {
+              $("#dialog").dialog({
+                  modal: true,
+                  buttons: {
+                      "Cerca el codi ISBN": function() {
+                          atura_video();
+                          var isbn = $("#barcode_detectat").html();
+                          if(!isbn) {
+                              alert("No s'ha detectat cap codi de barres");
+                              return;
+                          }
+                          carrega_info_isbn(isbn);
+                          $('#barcode_detectat').empty();
+                          $('#dialog').dialog("close");
+                      },
+                      "Cancela": function() {
+                          atura_video();
+                          $('#barcode_detectat').empty();
+                          $('#dialog').dialog("close");
+                      }
+                  }
+              });
+              startBarcodeDetection();
+          }
+        </script>
+        <a href="#" onclick="introduccio_manual_isbn()" class="viewlink">Introdueix manualment l'ISBN</a>
+        <a href="#" onclick="llegeix_codi_de_barres_amb_camera()" class="viewlink">Llegeix codi de barres de ISBN</a>
+      </li>
+    {% endif %}
+
+    {% if change and not is_popup %}
+      {% block object-tools-items %}
+        {% change_form_object_tools %}
+      {% endblock %}
+    {% endif %}
+  </ul>
+  {% endblock %}
+
+  <form {% if has_file_field %}enctype="multipart/form-data" {% endif %}{% if form_url %}action="{{ form_url }}" {% endif %}method="post" id="{{ opts.model_name }}_form" novalidate>
+    {% csrf_token %}
+    {% block form_top %}{% endblock %}
+    <div>
+      {% if is_popup %}<input type="hidden" name="{{ is_popup_var }}" value="1">{% endif %}
+      {% if to_field %}<input type="hidden" name="{{ to_field_var }}" value="{{ to_field }}">{% endif %}
+      {% if save_on_top %}{% block submit_buttons_top %}{% submit_row %}{% endblock %}{% endif %}
+      {% if errors %}
+        <p class="errornote">
+        {% blocktranslate count counter=errors|length %}Please correct the error below.{% plural %}Please correct the errors below.{% endblocktranslate %}
+        </p>
+        {{ adminform.form.non_field_errors }}
+      {% endif %}
+
+      {% block field_sets %}
+      {% for fieldset in adminform %}
+        {% include "admin/includes/fieldset.html" %}
+      {% endfor %}
+      {% endblock %}
+
+      {% block after_field_sets %}{% endblock %}
+
+      {% block inline_field_sets %}
+      {% for inline_admin_formset in inline_admin_formsets %}
+        {% include inline_admin_formset.opts.template %}
+      {% endfor %}
+      {% endblock %}
+
+      {% block after_related_objects %}{% endblock %}
+
+      {% block submit_buttons_bottom %}{% submit_row %}{% endblock %}
+
+      {% block admin_change_form_document_ready %}
+        <script id="django-admin-form-add-constants"
+                src="{% static 'admin/js/change_form.js' %}"
+                {% if adminform and add %}
+                    data-model-name="{{ opts.model_name }}"
+                {% endif %}
+                async>
+        </script>
+      {% endblock %}
+
+      {# JavaScript for prepopulated fields #}
+      {% prepopulated_fields_js %}
+    </div>
+  </form>
 </div>
-{% endblock %}
-{% endif %}
-
-{% block content %}<div id="content-main">
-
-{% block object-tools %}
-<ul class="object-tools">
-
-{% if '/admin/biblioteca/llibre/' in request.path %}
-  <li>
-    
-    <script type="text/javascript">
-    function introduccio_manual_isbn() {
-        var isbn = prompt("Introdueix el ISBN");
-        carrega_info_isbn_de_open_library(isbn);
-    }
-
-    function carrega_info_isbn_de_open_library(isbn) {
-        $.ajax({
-          method: "GET",
-          url: "https://openlibrary.org/api/books?bibkeys=ISBN:"+isbn+"&jscmd=details&format=json",
-          dataType: "json",   // necessitem això pq ens retorni un objecte JSON
-        }).done(function (msg) {
-            var llibre = msg["ISBN:"+isbn];
-            if( !llibre ) {
-                console.log("No s'ha trobat l'ISBN");
-                alert("No s'ha trobat l'ISBN");
-                return;
-            }
-            console.log(msg);
-            if( !llibre.details ) {
-                console.log("No s'ha trobat detalls del llibre");
-                alert("No s'ha trobat detalls del llibre");
-                return;
-            }
-
-            $('#id_ISBN').val(isbn);
-            if(llibre.info_url) $('#id_info_url').val(llibre.info_url);
-            if(llibre.preview_url) $('#id_preview_url').val(llibre.preview_url);
-            if(llibre.thumbnail_url) $('#id_thumbnail_url').val(llibre.thumbnail_url);
-
-            var details = llibre.details;
-            if(details.title) $('#id_titol').val(details.title);
-            if(details.full_title) $('#id_titol').val(details.full_title);
-            if(details.translation_of) $('#id_titol_original').val(details.translation_of);
-            if(details.number_of_pages) $('#id_pagines').val(details.number_of_pages);
-            if(details.publishers) $('#id_editorial').val(details.publishers[0]);
-            if(details.authors) $('#id_autor').val(details.authors[0].name);
-            if(details.publish_date) {
-                let data = new Date(details.publish_date);
-                let data2 = data.getDate()+"/"+(data.getMonth()+1)+"/"+data.getFullYear();
-                $('#id_data_edicio').val(data2);
-            }
-            if(details.description) $('#id_resum').val(details.description.value);
-            /*if(details.languages) {
-                var lang_code = details.languages[0].key;
-
-                $('#id_autor').val(details.authors[0].name);
-            }*/
-
-        }).fail(function () {
-            alert("Error en carregar la informació de l'ISBN");
-        });
-    }
-
-    let stream = null;
-
-    async function startBarcodeDetection() {
-        const videoElement = document.getElementById('video');
-        const resultElement = document.getElementById('result');
-        const barcodeElement = document.getElementById('barcode_detectat');
-
-        if (!('BarcodeDetector' in window)) {
-            resultElement.textContent = 'La teva navegadora no suporta la Barcode Detection API.';
-            resultElement.classList.add('error');
-            return;
-        }
-
-        const barcodeDetector = new BarcodeDetector();
-
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-            videoElement.srcObject = stream;
-            await videoElement.play(); // Assegura que el vídeo es reprodueix
-
-            async function detectBarcode() {
-                if (videoElement.readyState !== 4) {
-                    console.error('El flux de vídeo no està llest.');
-                    return;
-                }
-
-                try {
-                    const barcodes = await barcodeDetector.detect(videoElement);
-                    if (barcodes.length > 0) {
-                        resultElement.textContent = `Codi detectat: ${barcodes[0].rawValue}`;
-                        barcodeElement.textContent = barcodes[0].rawValue;
-                    } else {
-                        resultElement.textContent = 'Escanejant...';
-                    }
-                } catch (error) {
-                    console.error('Error en la detecció de codis:', error);
-                    resultElement.textContent = 'Error en la detecció de codis.';
-                    resultElement.classList.add('error');
-                }
-
-                requestAnimationFrame(detectBarcode);
-            }
-
-            detectBarcode();
-        } catch (error) {
-            console.error('Error al accedir a la càmera:', error);
-            resultElement.textContent = 'No es pot accedir a la càmera.';
-            resultElement.classList.add('error');
-        }
-    }
-
-    function atura_video() {
-        if (stream) {
-            const tracks = stream.getTracks();
-            tracks.forEach(track => track.stop()); // Atura totes les pistes (àudio i vídeo)
-            $('video')[0].srcObject = null; // Desconnecta el vídeo
-            $('result').html('Captura aturada.');
-            stream = null;
-        }
-    }
-
-    function llegeix_codi_de_barres_amb_camera() {
-        const videoElement = document.getElementById('video');
-        $("#dialog").dialog({
-            modal: true,
-            buttons: {
-                "Cerca el codi ISBN": function() {
-                    atura_video();
-                    var isbn = $("#barcode_detectat").html();
-                    if( !isbn ) {
-                        alert("No s'ha detectat cap codi de barres");
-                        return;
-                    }
-                    // ajax a openlibrary.org
-                    carrega_info_isbn_de_open_library(isbn);
-                    $('#barcode_detectat').empty();
-                    $('#dialog').dialog("close");
-                },
-                "Cancela": function() {
-                    atura_video();
-                    $('#barcode_detectat').empty();
-                    $('#dialog').dialog("close");
-                }
-            }
-        });
-        // barcode lib
-        startBarcodeDetection();
-    }
-    </script>
-    <a href="#" onclick="introduccio_manual_isbn()" class="viewlink">Introdueix manualment l'ISBN</a>
-    <a href="#" onclick="llegeix_codi_de_barres_amb_camera()" class="viewlink">Llegeix codi de barres de ISBN</a>
-  </li>
-{% endif %}
-
-{% if change and not is_popup %}
-    {% block object-tools-items %}
-      {% change_form_object_tools %}
-    {% endblock %}
-{% endif %}
-</ul>
-{% endblock %}
-<form {% if has_file_field %}enctype="multipart/form-data" {% endif %}{% if form_url %}action="{{ form_url }}" {% endif %}method="post" id="{{ opts.model_name }}_form" novalidate>{% csrf_token %}{% block form_top %}{% endblock %}
-<div>
-{% if is_popup %}<input type="hidden" name="{{ is_popup_var }}" value="1">{% endif %}
-{% if to_field %}<input type="hidden" name="{{ to_field_var }}" value="{{ to_field }}">{% endif %}
-{% if save_on_top %}{% block submit_buttons_top %}{% submit_row %}{% endblock %}{% endif %}
-{% if errors %}
-    <p class="errornote">
-    {% blocktranslate count counter=errors|length %}Please correct the error below.{% plural %}Please correct the errors below.{% endblocktranslate %}
-    </p>
-    {{ adminform.form.non_field_errors }}
-{% endif %}
-
-{% block field_sets %}
-{% for fieldset in adminform %}
-  {% include "admin/includes/fieldset.html" %}
-{% endfor %}
-{% endblock %}
-
-{% block after_field_sets %}{% endblock %}
-
-{% block inline_field_sets %}
-{% for inline_admin_formset in inline_admin_formsets %}
-    {% include inline_admin_formset.opts.template %}
-{% endfor %}
-{% endblock %}
-
-{% block after_related_objects %}{% endblock %}
-
-{% block submit_buttons_bottom %}{% submit_row %}{% endblock %}
-
-{% block admin_change_form_document_ready %}
-    <script id="django-admin-form-add-constants"
-            src="{% static 'admin/js/change_form.js' %}"
-            {% if adminform and add %}
-                data-model-name="{{ opts.model_name }}"
-            {% endif %}
-            async>
-    </script>
-{% endblock %}
-
-{# JavaScript for prepopulated fields #}
-{% prepopulated_fields_js %}
-
-</div>
-</form></div>
 
 <div id="dialog" title="Captura de codi de barres per ISBN">
   <p>Captura el codi de barres</p>
@@ -246,5 +284,4 @@
   <div id="result">Escanejant...</div>
   <div id="barcode_detectat"></div>
 </div>
-
 {% endblock %}
