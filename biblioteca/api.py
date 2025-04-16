@@ -184,6 +184,7 @@ class ExemplarOut(Schema):
     baixa: bool
     cataleg: Union[LlibreOut,CatalegOut]
     tipus: str
+    centre: dict
 
 class LlibreIn(Schema):
     titol: str
@@ -231,6 +232,7 @@ def get_exemplars(request):
         "cataleg__dvd",
         "cataleg__br",
         "cataleg__dispositiu",
+        "centre",
     ).all()
     result = []
 
@@ -257,6 +259,11 @@ def get_exemplars(request):
                 baixa=exemplar.baixa,
                 cataleg=cataleg_schema,
                 tipus=tipus,
+                centre={
+                    "id": exemplar.centre.id,
+                    "nom": exemplar.centre.nom
+                },
+                
             )
         )
 
