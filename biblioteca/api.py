@@ -18,6 +18,8 @@ import re
 
 from typing import List, Optional, Union, Dict
 
+from pydantic import validator
+
 # Importación de modelos (si usas wildcard, de lo contrario importa solo lo que necesites)
 from .models import *
 from datetime import date
@@ -166,16 +168,41 @@ def actualizar_perfil(request, data: PerfilUpdateSchema):
     return {"success": True}
 
 
+
+# catalogo y ejemplares
+
 class CatalegOut(Schema):
     id: int
     titol: str
-    def autor(self) -> Optional[str]:
-        return self._obj.autor.nom if self._obj.autor else None
+    autor: Optional[str] = None  # campo para mostrar solo el nombre del autor
+
+    class Config:
+        orm_mode = True
+
+    @validator('autor', pre=True)
+    def extract_autor(cls, value):
+        # Si ya es None, devolvemos None.
+        if value is None:
+            return None
+        # Si value es un objeto con atributo 'nom', lo devolvemos.
+        try:
+            return value.nom
+        except AttributeError:
+            return value
+        
 
 class LlibreOut(CatalegOut):
     ISBN: Optional[str]
-    def editorial(self) -> Optional[str]:
-        return self._obj.editorial.nom if self._obj.editorial else None
+    editorial: Optional[str] = None
+
+    @validator('editorial', pre=True)
+    def extract_editorial(cls, value):
+        if value is None:
+            return None
+        try:
+            return value.nom
+        except AttributeError:
+            return value
 
 class ExemplarOut(Schema):
     id: int
@@ -201,11 +228,14 @@ def get_llibres(request, search: str = None):
 
     if search:
         qs = Llibre.objects.filter(
-            Q(titol__icontains=search) | Q(autor__icontains=search)
-        )
+            Q(titol__icontains=search) | Q(autor__nom__icontains=search)
+        ).select_related('autor', 'editorial')
     else:
-        qs = Llibre.objects.all()
+        qs = Llibre.objects.all().select_related('autor', 'editorial')
     return qs
+
+
+
 @api.post("/llibres/")
 def post_llibres(request, payload: LlibreIn):
     llibre = Llibre.objects.create(**payload.dict())
