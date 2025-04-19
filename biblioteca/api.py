@@ -1,3 +1,5 @@
+
+from django.db.models import Q
 from django.contrib.auth import authenticate, get_user_model
 from django.shortcuts import get_object_or_404
 from django.core.files.storage import default_storage
@@ -10,9 +12,6 @@ from ninja.security import HttpBasicAuth, HttpBearer
 from ninja.files import UploadedFile
 
 import secrets
-
-from datetime import date
-
 import hashlib
 import csv
 import traceback
@@ -20,6 +19,8 @@ import os
 import re
 
 from typing import List, Optional, Union, Dict
+
+from pydantic import validator
 
 # Importación de modelos (si usas wildcard, de lo contrario importa solo lo que necesites)
 from .models import *
@@ -30,7 +31,6 @@ api = NinjaAPI()
 router = Router()
 
 User = get_user_model()
-
 
 # Autenticació bàsica
 class BasicAuth(HttpBasicAuth):
@@ -170,14 +170,57 @@ def actualizar_perfil(request, data: PerfilUpdateSchema):
     return {"success": True}
 
 
+
+# catalogo y ejemplares
+
 class CatalegOut(Schema):
     id: int
     titol: str
-    autor: Optional[str]
+    autor: Optional[str] = None  # campo para mostrar solo el nombre del autor
+
+    class Config:
+        orm_mode = True
+
+  #  @validator('autor', pre=True)
+  #  def extract_autor(cls, value):
+        # Si ya es None, devolvemos None.
+    #    if value is None:
+   #         return None
+    #    # Si value es un objeto con atributo 'nom', lo devolvemos.
+   #     try:
+      #      return value.nom
+   #     except AttributeError:
+     #       return value
+
+    #cambios
+    @validator('autor', pre=True, always=True)
+    def extract_autor(cls, value):
+        if isinstance(value, str):  # ya está procesado
+            return value
+        if hasattr(value, 'nom'):
+            return value.nom
+        return None
+
+        
 
 class LlibreOut(CatalegOut):
-    editorial: Optional[str]
     ISBN: Optional[str]
+    editorial: Optional[str] = None
+
+    @validator('editorial', pre=True)
+    def extract_editorial(cls, value):
+        ##if value is None:
+
+        #cambios
+        if isinstance(value, str):
+            return None
+        if hasattr(value, 'nom'):
+            return value.nom
+        return None
+        #try:
+         #   return value.nom
+        #except AttributeError:
+         #   return value
 
 class ExemplarOut(Schema):
     id: int
@@ -186,6 +229,7 @@ class ExemplarOut(Schema):
     baixa: bool
     cataleg: Union[LlibreOut,CatalegOut]
     tipus: str
+    centre: dict
 
 class LlibreIn(Schema):
     titol: str
@@ -202,11 +246,14 @@ def get_llibres(request, search: str = None):
 
     if search:
         qs = Llibre.objects.filter(
-            Q(titol__icontains=search) | Q(autor__icontains=search)
-        )
+            Q(titol__icontains=search) | Q(autor__nom__icontains=search)
+        ).select_related('autor', 'editorial')
     else:
-        qs = Llibre.objects.all()
+        qs = Llibre.objects.all().select_related('autor', 'editorial')
     return qs
+
+
+
 @api.post("/llibres/")
 def post_llibres(request, payload: LlibreIn):
     llibre = Llibre.objects.create(**payload.dict())
@@ -233,6 +280,7 @@ def get_exemplars(request):
         "cataleg__dvd",
         "cataleg__br",
         "cataleg__dispositiu",
+        "centre",
     ).all()
     result = []
 
@@ -259,6 +307,11 @@ def get_exemplars(request):
                 baixa=exemplar.baixa,
                 cataleg=cataleg_schema,
                 tipus=tipus,
+                centre={
+                    "id": exemplar.centre.id,
+                    "nom": exemplar.centre.nom
+                },
+                
             )
         )
 
