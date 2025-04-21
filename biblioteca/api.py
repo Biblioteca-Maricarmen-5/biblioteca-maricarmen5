@@ -18,8 +18,11 @@ import re
 
 from typing import List, Optional, Union, Dict
 
+from pydantic import validator
+
 # Importación de modelos (si usas wildcard, de lo contrario importa solo lo que necesites)
 from .models import *
+from datetime import date
 
 api = NinjaAPI()
 
@@ -100,7 +103,7 @@ class UserProfileResponse(Schema):
     nombre: str
     email: str
     centre: Optional[str] = None
-    cicle: Optional[str] = None
+    grup: Optional[str] = None
     imatge: Optional[str] = None
     grupos: list[str]
     telefon: Optional[str] = None
@@ -110,7 +113,7 @@ def perfil(request, data: UserProfileRequest):
     user = get_object_or_404(User, username=data.username)
     nombre = user.get_full_name() if user.first_name or user.last_name else ""
     centre_name = user.centre.nom if user.centre else None
-    cicle_name = user.cicle.nom if user.cicle else None
+    grup_name = user.grup.nom if user.grup else None
     try:
         imatge_url = user.imatge.url if user.imatge else None
     except ValueError:
@@ -122,7 +125,7 @@ def perfil(request, data: UserProfileRequest):
         "nombre": nombre,
         "email": user.email,
         "centre": centre_name,
-        "cicle": cicle_name,
+        "grup": grup_name,
         "imatge": imatge_url,
         "grupos": grupos,
         "telefon": telefon,
@@ -165,14 +168,41 @@ def actualizar_perfil(request, data: PerfilUpdateSchema):
     return {"success": True}
 
 
+
+# catalogo y ejemplares
+
 class CatalegOut(Schema):
     id: int
     titol: str
-    autor: Optional[str]
+    autor: Optional[str] = None  # campo para mostrar solo el nombre del autor
+
+    class Config:
+        orm_mode = True
+
+    @validator('autor', pre=True)
+    def extract_autor(cls, value):
+        # Si ya es None, devolvemos None.
+        if value is None:
+            return None
+        # Si value es un objeto con atributo 'nom', lo devolvemos.
+        try:
+            return value.nom
+        except AttributeError:
+            return value
+        
 
 class LlibreOut(CatalegOut):
-    editorial: Optional[str]
     ISBN: Optional[str]
+    editorial: Optional[str] = None
+
+    @validator('editorial', pre=True)
+    def extract_editorial(cls, value):
+        if value is None:
+            return None
+        try:
+            return value.nom
+        except AttributeError:
+            return value
 
 class ExemplarOut(Schema):
     id: int
@@ -181,6 +211,7 @@ class ExemplarOut(Schema):
     baixa: bool
     cataleg: Union[LlibreOut,CatalegOut]
     tipus: str
+    centre: dict
 
 class LlibreIn(Schema):
     titol: str
@@ -190,9 +221,20 @@ class LlibreIn(Schema):
 @api.get("/llibres", response=List[LlibreOut])
 @api.get("/llibres/", response=List[LlibreOut])
 #@api.get("/llibres/", response=List[LlibreOut], auth=AuthBearer())
-def get_llibres(request):
-    qs = Llibre.objects.all()
+def get_llibres(request, search: str = None):
+
+    # Devuelve todos los llibres. Si se proporciona el parámetro 'search',
+    # se filtran los llibres cuyo titol o autor contenga el término de búsqueda.
+
+    if search:
+        qs = Llibre.objects.filter(
+            Q(titol__icontains=search) | Q(autor__nom__icontains=search)
+        ).select_related('autor', 'editorial')
+    else:
+        qs = Llibre.objects.all().select_related('autor', 'editorial')
     return qs
+
+
 
 @api.post("/llibres/")
 def post_llibres(request, payload: LlibreIn):
@@ -201,6 +243,13 @@ def post_llibres(request, payload: LlibreIn):
         "id": llibre.id,
         "titol": llibre.titol
     }
+
+
+
+@api.get("/llibres/{id}", response=LlibreOut)
+def get_llibre_by_id(request, id: int):
+    llibre = get_object_or_404(Llibre, id=id)
+    return llibre
 
 @api.get("/exemplars", response=List[ExemplarOut])
 @api.get("/exemplars/", response=List[ExemplarOut])
@@ -213,6 +262,7 @@ def get_exemplars(request):
         "cataleg__dvd",
         "cataleg__br",
         "cataleg__dispositiu",
+        "centre",
     ).all()
     result = []
 
@@ -239,6 +289,11 @@ def get_exemplars(request):
                 baixa=exemplar.baixa,
                 cataleg=cataleg_schema,
                 tipus=tipus,
+                centre={
+                    "id": exemplar.centre.id,
+                    "nom": exemplar.centre.nom
+                },
+                
             )
         )
 
@@ -294,9 +349,9 @@ def subir_documento(request, archivo: UploadedFile):
                 cognom2 = (cleaned_row.get("cognom2") or "").strip()
                 telefon = cleaned_row.get("telefon", "")
                 centre_nom = cleaned_row.get("centre", "")
-                cicle_nom = cleaned_row.get("grup", "")
+                grup_nom = cleaned_row.get("grup", "")
 
-                if not all([nom, cognom1, cognom2, telefon, centre_nom, cicle_nom]):
+                if not all([nom, cognom1, cognom2, telefon, centre_nom, grup_nom]):
                     errores.append({"fila": cleaned_row, "error": "Faltan campos obligatorios."})
                     continue
 
@@ -308,7 +363,7 @@ def subir_documento(request, archivo: UploadedFile):
                     validar_telefono(telefon)
 
                     centre, _ = Centre.objects.get_or_create(nom=centre_nom)
-                    cicle, _ = Cicle.objects.get_or_create(nom=cicle_nom)
+                    grup, _ = Grup.objects.get_or_create(nom=grup_nom)
 
                     Usuari.objects.create_user(
                         username=email,
@@ -317,7 +372,7 @@ def subir_documento(request, archivo: UploadedFile):
                         last_name=f"{cognom1} {cognom2}",
                         telefon=telefon,
                         centre=centre,
-                        cicle=cicle,
+                        grup=grup,
                         password="1234"
                     )
                     usuarios_creados += 1
@@ -329,7 +384,7 @@ def subir_documento(request, archivo: UploadedFile):
                         email=email,
                         telefon=telefon,
                         centre=centre_nom,
-                        grup=cicle_nom
+                        grup=grup_nom
                     ))
 
                 except (ValidationError, ValueError) as e:
@@ -352,3 +407,36 @@ def subir_documento(request, archivo: UploadedFile):
         "errores": errores,
         "usuarios_creados": usuarios_creados
     }
+
+
+
+
+
+# prestamos
+
+class PrestecOut(Schema):
+    id: int
+    data_prestec: date
+    data_retorn: Optional[date] = None
+    anotacions: Optional[str] = None
+    exemplar_titol: str
+
+class PrestecsRequest(Schema):
+    username: str
+
+@api.post("/prestecs", response=List[PrestecOut])
+def get_prestecs(request, payload: PrestecsRequest):
+    username = payload.username
+    qs = Prestec.objects.filter(usuari__username=username).order_by("-data_prestec")
+    
+    results = []
+    for prestec in qs:
+        exemplar_titol = prestec.exemplar.cataleg.titol if prestec.exemplar and prestec.exemplar.cataleg else "N/A"
+        results.append({
+            "id": prestec.id,
+            "data_prestec": prestec.data_prestec,
+            "data_retorn": prestec.data_retorn,
+            "anotacions": prestec.anotacions,
+            "exemplar_titol": exemplar_titol,
+        })
+    return results
