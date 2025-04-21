@@ -305,6 +305,27 @@ def get_exemplars(request):
 
     return result
 
+class UsuariCSV:
+    def __init__(self, nom: str, cognom1: str, cognom2: str, email: str, telefon: str, centre: str, grup: str):
+        self.nom = nom
+        self.cognom1 = cognom1
+        self.cognom2 = cognom2
+        self.email = email
+        self.telefon = telefon
+        self.centre = centre
+        self.grup = grup
+
+    def to_dict(self):
+        return {
+            "nom": self.nom,
+            "cognom1": self.cognom1,
+            "cognom2": self.cognom2,
+            "email": self.email,
+            "telefon": self.telefon,
+            "centre": self.centre,
+            "grup": self.grup
+        }
+
 class UploadResponse(Schema):
     mensaje: str
     errores: Optional[List[Dict]] = None
@@ -398,9 +419,14 @@ def subir_documento(request, archivo: UploadedFile):
                     continue
 
     except Exception as e:
-        print("🔥 Error procesando CSV:", e)
+        print("Error procesando CSV:", e)
         traceback.print_exc()
-        return 500, {"mensaje": "Error interno del servidor."}
+        return 500, {
+            "mensaje": f"Error interno del servidor: {e}",
+            "errores": [],
+            "usuarios_creados": 0
+        }
+
 
     finally:
         try:
@@ -408,11 +434,12 @@ def subir_documento(request, archivo: UploadedFile):
         except:
             pass
 
-    return {
-        "mensaje": f"Proceso completado. {usuarios_creados} usuario(s) creados.",
-        "errores": errores,
-        "usuarios_creados": usuarios_creados
+    return 200, {
+        "mensaje": f"{usuarios_creados} usuario(s) creados correctamente.",
+        "usuarios_creados": usuarios_creados,
+        "errores": errores
     }
+
 
 
 
