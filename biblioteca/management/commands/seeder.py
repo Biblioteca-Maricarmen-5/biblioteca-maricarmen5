@@ -81,7 +81,7 @@ def crear_autores_y_libros():
     # Asegurarse de tener un centro para asignar a los ejemplares
     default_centre = Centre.objects.first()
     if not default_centre:
-        default_centre = Centre.objects.create(nom="Centro por defecto")
+        default_centre = Centre.objects.create(nom="Esteve Terradas i Illa")
 
     # Crear instancias de Autor y Editorial
     autors = [Autor.objects.create(nom=fake.name()) for _ in range(100)]
@@ -214,7 +214,7 @@ def crear_otros_materiales():
     # Aseguramos un centro por defecto
     default_centre = Centre.objects.first()
     if not default_centre:
-        default_centre = Centre.objects.create(nom="Centro por defecto")
+        default_centre = Centre.objects.create(nom="Esteve Terradas i Illa")
     
     # Revistas (50 unidades)
     for i in range(50):
