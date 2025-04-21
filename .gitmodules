@@ -1,3 +1,4 @@
 [submodule "react"]
 	path = react
 	url = https://github.com/adriaht/biblioteca-maricarmen-react
+	branch = pro-react
