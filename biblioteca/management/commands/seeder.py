@@ -95,12 +95,26 @@ def crear_autores_y_libros():
     ejemplares_objetivo = 5000
     used_isbns = set()
 
+    #def get_unique_isbn():
+     #   while True:
+      #      isbn = fake.isbn13()
+       #     if isbn not in used_isbns:
+        #        used_isbns.add(isbn)
+         #       return isbn
     def get_unique_isbn():
         while True:
-            isbn = fake.isbn13()
-            if isbn not in used_isbns:
-                used_isbns.add(isbn)
-                return isbn
+            try:
+                isbn = fake.isbn13().replace('-', '')  # Elimina guiones si los tiene
+                if len(isbn) > 13:
+                    isbn = isbn[:13]  # Limita a 13 caracteres
+                if isbn not in used_isbns:
+                    used_isbns.add(isbn)
+                    return isbn
+            except Exception as e:
+                print(f"Error generando ISBN: {e}")
+                continue
+
+
 
     # Se crean libros para cada autor creado
     for autor in autors:
