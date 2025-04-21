@@ -181,25 +181,17 @@ class CatalegOut(Schema):
     class Config:
         orm_mode = True
 
-  #  @validator('autor', pre=True)
-  #  def extract_autor(cls, value):
-        # Si ya es None, devolvemos None.
-    #    if value is None:
-   #         return None
-    #    # Si value es un objeto con atributo 'nom', lo devolvemos.
-   #     try:
-      #      return value.nom
-   #     except AttributeError:
-     #       return value
 
-    #cambios
-    @validator('autor', pre=True, always=True)
+    @validator('autor', pre=True)
     def extract_autor(cls, value):
-        if isinstance(value, str):  # ya está procesado
-            return value
-        if hasattr(value, 'nom'):
+        # Si ya es None, devolvemos None.
+        if value is None:
+            return None
+        # Si value es un objeto con atributo 'nom', lo devolvemos.
+        try:
             return value.nom
-        return None
+        except AttributeError:
+            return value
 
         
 
@@ -209,18 +201,14 @@ class LlibreOut(CatalegOut):
 
     @validator('editorial', pre=True)
     def extract_editorial(cls, value):
-        ##if value is None:
 
-        #cambios
-        if isinstance(value, str):
+        if value is None:
             return None
-        if hasattr(value, 'nom'):
+        try:
             return value.nom
-        return None
-        #try:
-         #   return value.nom
-        #except AttributeError:
-         #   return value
+        except AttributeError:
+            return value
+
 
 class ExemplarOut(Schema):
     id: int
