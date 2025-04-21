@@ -1,0 +1,70 @@
+
+{% load static %}
+ <!DOCTYPE html>
+ <html lang="ca">
+ <head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>404</title>
+   <style>
+     body {
+       background-color: #007acc;
+       color: #333;
+       font-family: Arial, sans-serif;
+       text-align: center;
+       padding: 100px 20px;
+     }
+ 
+     h1 {
+       font-size: 72px;
+       color: #fff;
+       margin-bottom: 20px;
+     }
+ 
+     p {
+       font-size: 24px;
+       color: #fff;
+       margin-bottom: 40px;
+     }
+ 
+     .link-box {
+       background-color: #fff;
+       border: 5px solid #007acc;
+       display: inline-block;
+       padding: 20px 30px;
+       border-radius: 10px;
+     }
+ 
+     .link-box a {
+       display: block;
+       color: #007acc;
+       text-decoration: none;
+       font-weight: bold;
+       margin: 10px 0;
+       font-size: 18px;
+     }
+ 
+     .link-box a:hover {
+       text-decoration: none;
+       opacity: 0.8;
+     }
+ 
+     .logo {
+       width: 150px;
+       margin-bottom: 5px;
+     }
+   </style>
+ </head>
+ <body>
+   
+   <h1>404</h1>
+   <p>Ups! Aquesta pàgina no existeix o ha estat moguda.</p>
+   <div class="link-box">
+     <a href="https://biblioteca5.ieti.site">Torna a l'inici</a>
+     <a href="https://www.iesesteveterradas.cat">Si vols més informació: IES Esteve Terradas</a>
+     <img src="{% static 'logo.png' %}" alt="Logo" class="logo">
+     
+   </div>
+ </body>
+ </html>
+ 

@@ -1,3 +1,5 @@
+
+from django.db.models import Q
 from django.contrib.auth import authenticate, get_user_model
 from django.shortcuts import get_object_or_404
 from django.core.files.storage import default_storage
@@ -179,6 +181,7 @@ class CatalegOut(Schema):
     class Config:
         orm_mode = True
 
+
     @validator('autor', pre=True)
     def extract_autor(cls, value):
         # Si ya es None, devolvemos None.
@@ -189,6 +192,7 @@ class CatalegOut(Schema):
             return value.nom
         except AttributeError:
             return value
+
         
 
 class LlibreOut(CatalegOut):
@@ -197,12 +201,14 @@ class LlibreOut(CatalegOut):
 
     @validator('editorial', pre=True)
     def extract_editorial(cls, value):
+
         if value is None:
             return None
         try:
             return value.nom
         except AttributeError:
             return value
+
 
 class ExemplarOut(Schema):
     id: int
