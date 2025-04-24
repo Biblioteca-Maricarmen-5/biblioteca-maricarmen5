@@ -473,3 +473,112 @@ def get_prestecs(request, payload: PrestecsRequest):
             "exemplar_titol": exemplar_titol,
         })
     return results
+
+
+#para prestamo del biblio en detalle libro
+
+# Autenticación basada en el token
+class AuthBearer(HttpBearer):
+    def authenticate(self, request, token):
+        try:
+            # Buscar al usuario con el token proporcionado
+            user = get_user_model().objects.get(auth_token=token)
+            # Aquí puedes añadir la verificación del grupo específico del bibliotecario si lo deseas
+            return user
+        except get_user_model().DoesNotExist:
+            return None
+
+# Esquema de búsqueda de usuarios
+class UserSearchSchema(Schema):
+    query: str
+
+class UserSearchResponse(Schema):
+    id: int
+    first_name: str
+    last_name: str
+    email: str
+    telefon: Optional[str]
+    centre: Optional[str]
+
+# Endpoint para buscar usuarios, protegido por autenticación con token
+@api.post("/buscar_usuarios/", response=List[UserSearchResponse])
+def buscar_usuarios(request, data: UserSearchSchema):
+    try:
+       # user = request.auth
+        #if not user:
+         #   return {"error": "No se pudo autenticar el usuario."}
+
+        query = data.query.strip()
+
+        if not query:
+            return {"error": "El campo de búsqueda no puede estar vacío."}
+
+        # Filtrar usuarios según la búsqueda
+        usuari = User.objects.filter(
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query) |
+            Q(email__icontains=query) |
+            Q(telefon__icontains=query),
+            groups__name="usuari"
+        ).distinct()
+
+        if not usuari:
+            logger = logging.getLogger(__name__)
+            logger.debug("No se encontraron usuarios.")
+            return {"message": "No se encontraron usuarios."}
+
+        return [
+            UserSearchResponse(
+                id=u.id,
+                first_name=u.first_name,
+                last_name=u.last_name,
+                email=u.email,
+                telefon=u.telefon,
+                centre=u.centre.nom if u.centre else None
+            )
+            for u in usuari
+        ]
+
+    except Exception as e:
+        # Captura y log de la excepción
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error al buscar usuarios: {str(e)}")
+        return {"error": f"Ha ocurrido un error interno: {str(e)}"}
+
+
+#crear prestamo biblio
+class CrearPrestecRequest(Schema):
+    usuari: int
+    exemplar: int
+    data_prestec: Optional[date] = None
+    anotacions: Optional[str] = None
+
+@api.post("/crear_prestec")
+def crear_prestec(request, payload: CrearPrestecRequest):
+    try:
+        usuari = Usuari.objects.get(id=payload.usuari)
+        exemplar = Exemplar.objects.get(id=payload.exemplar)
+
+        # Creamos el préstamo
+        prestec = Prestec.objects.create(
+            usuari=usuari,
+            exemplar=exemplar,
+            data_prestec=payload.data_prestec or date.today(),
+            anotacions=payload.anotacions or ""
+        )
+
+        # Marcamos el ejemplar como exclòs del préstec
+        exemplar.exclos_prestec = True
+        exemplar.save()
+
+        return {
+            "message": "Préstamo creado correctamente",
+            "id": prestec.id
+        }
+
+    except Usuari.DoesNotExist:
+        return {"error": "Usuari no trobat"}, 404
+    except Exemplar.DoesNotExist:
+        return {"error": "Exemplar no trobat"}, 404
+    except Exception as e:
+        return {"error": str(e)}, 500
