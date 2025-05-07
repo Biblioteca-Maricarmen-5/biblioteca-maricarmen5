@@ -423,6 +423,18 @@ def subir_documento(request, archivo: UploadedFile):
     }
 
 
+# busqueda de ejemplares para las etiquetas
+
+@api.get("/busqueda_ejemplars", response=List[ExemplarOut])
+def buscar_por_registre(request, registre: str):
+    qs = Exemplar.objects.filter(registre__icontains=registre).select_related('cataleg')
+    return qs
+
+@api.get("/busqueda_ejemplars/range", response=List[ExemplarOut])
+def buscar_por_rango(request, min: int, max: int):
+    qs = Exemplar.objects.filter(id__gte=min, id__lte=max).select_related('cataleg')
+    return qs
+
 
 
 
