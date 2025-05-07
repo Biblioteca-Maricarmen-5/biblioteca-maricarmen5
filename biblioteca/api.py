@@ -261,7 +261,7 @@ def get_llibre_by_id(request, id: int):
 @api.get("/exemplars/", response=List[ExemplarOut])
 def get_exemplars(request):
     # carreguem objectes amb els proxy models relacionats exactes
-    exemplars = Exemplar.objects.select_related(
+    exemplars = Exemplar.objects.filter(baixa=False).select_related(
         "cataleg__llibre",
         "cataleg__revista",
         "cataleg__cd",
@@ -304,6 +304,84 @@ def get_exemplars(request):
         )
 
     return result
+
+# para el listado de libros
+@api.get("/llibres_con_disponibles", response=List[dict])
+def get_llibres_con_disponibles(request):
+    from django.db.models import Count
+
+    exemplars_qs = (
+        Exemplar.objects
+        .filter(baixa=False, cataleg__llibre__isnull=False)
+        .values('cataleg_id')
+        .annotate(disponibles=Count('id'))
+    )
+
+    # Creamos un dict de id => disponibles para acceso rápido
+    disponibles_map = {e['cataleg_id']: e['disponibles'] for e in exemplars_qs}
+
+    llibres = (
+        Llibre.objects
+        .all()
+        .select_related('autor', 'editorial')
+    )
+
+    resultat = []
+    for llibre in llibres:
+        resultat.append({
+            "id": llibre.id,
+            "titol": llibre.titol,
+            "autor": llibre.autor.nom if llibre.autor else None,
+            "editorial": llibre.editorial.nom if llibre.editorial else None,
+            "disponibles": disponibles_map.get(llibre.id, 0),
+        })
+
+    return resultat
+
+#para detalle del libro
+@api.get("/llibres/{id}/amb_exemplars", response=dict)
+def get_llibre_amb_exemplars(request, id: int):
+    llibre = get_object_or_404(Llibre, id=id)
+
+    exemplars = Exemplar.objects.filter(
+        baixa=False,
+        cataleg_id=id
+    ).select_related("centre")
+
+    exemplars_serialitzats = []
+    for e in exemplars:
+        exemplars_serialitzats.append({
+            "id": e.id,
+            "registre": e.registre,
+            "exclos_prestec": e.exclos_prestec,
+            "baixa": e.baixa,
+            "tipus": "llibre",  # o determina'l com vulguis
+            "centre": {
+                "id": e.centre.id,
+                "nom": e.centre.nom
+            }
+        })
+
+    return {
+        "id": llibre.id,
+        "titol": llibre.titol,
+        "autor": llibre.autor.nom if llibre.autor else None,
+        "editorial": llibre.editorial.nom if llibre.editorial else None,
+        "ISBN": llibre.ISBN,
+        "resum": llibre.resum,
+        "anotacions": llibre.anotacions,
+        "data_edicio": llibre.data_edicio,
+        "titol_original": llibre.titol_original,
+        "colleccio": llibre.colleccio,
+        "thumbnail_url": llibre.thumbnail_url,
+        "info_url": llibre.info_url,
+        "pagines": llibre.pagines,
+        "llengua": {"nom": llibre.llengua.nom} if llibre.llengua else None,
+        "pais": {"nom": llibre.pais.nom} if llibre.pais else None,
+        "exemplars": exemplars_serialitzats
+    }
+
+
 
 class UsuariCSV:
     def __init__(self, nom: str, cognom1: str, cognom2: str, email: str, telefon: str, centre: str, grup: str):
