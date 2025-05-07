@@ -12,3 +12,4 @@ pydantic_core==2.27.2
 sqlparse==0.5.3
 typing_extensions==4.12.2
 tzdata==2025.2
+django-allauth==0.63.0

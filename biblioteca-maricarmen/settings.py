@@ -37,7 +37,7 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 AUTH_USER_MODEL = 'biblioteca.Usuari'
 
 INSTALLED_APPS = [
-    "corsheaders",
+    'corsheaders',
     'biblioteca.apps.BibliotecaConfig',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -45,7 +45,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    "django_extensions",#borrar antes de presentacion solo para desarrollo
+    
+    # AllAuth aplicaciones
+    'django.contrib.sites',  # Requerido para allauth
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.microsoft',
 ]
 
 MIDDLEWARE = [
@@ -57,6 +64,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',  # Añade esta línea
 ]
 
 ROOT_URLCONF = 'biblioteca-maricarmen.urls'
@@ -137,3 +145,53 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+AUTHENTICATION_BACKENDS = [
+    # Django default backend
+    'django.contrib.auth.backends.ModelBackend',
+    # AllAuth backend
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+SITE_ID = 1
+
+# Configuración de AllAuth
+ACCOUNT_EMAIL_VERIFICATION = 'optional'  # o 'mandatory' o 'none'
+ACCOUNT_USER_MODEL_USERNAME_FIELD = 'username'
+ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
+
+ACCOUNT_LOGIN_METHODS = {'username', 'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'APP': {
+            'client_id': env("GOOGLE_CLIENT_ID", default=""),
+            'secret': env("GOOGLE_CLIENT_SECRET", default=""),
+            'key': ''
+        },
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        }
+    },
+    'microsoft': {
+        'APP': {
+            'client_id': env("MICROSOFT_CLIENT_ID", default=""),
+            'secret': env("MICROSOFT_CLIENT_SECRET", default=""),
+            'key': '',
+            'tenant': 'common',
+        },
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+    }
+}
+
+# URLs a las que redirigir después del login/logout
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
