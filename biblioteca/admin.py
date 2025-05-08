@@ -188,7 +188,32 @@ class LlibreAdmin(admin.ModelAdmin):
 class PrestecAdmin(admin.ModelAdmin):
     readonly_fields = ('data_prestec',)
     fields = ('exemplar', 'usuari', 'data_prestec', 'data_retorn', 'anotacions')
-    list_display = ('exemplar', 'usuari', 'data_prestec', 'data_retorn')
+    list_display = ('exemplar', 'usuari', 'usuari_centre', 'data_prestec', 'data_retorn')
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        user = request.user
+
+        print("=== DEBUG INFO ===")
+        print("Usuario:", user.username)
+        print("Centro del usuario:", getattr(user, 'centre', None))
+
+        if user.is_superuser:
+            return qs  # Si es superusuario, no se filtra nada
+
+        # Si el usuario es un bibliotecario y tiene asignado un centro
+        if user.groups.filter(name__iexact='Bibliotecario').exists() and user.centre:
+            print("Centro asignado al bibliotecario:", user.centre)
+            print("Consulta SQL: ", qs.filter(usuari__centre=user.centre).query)  # Mostrar la consulta SQL
+            return qs.filter(usuari__centre=user.centre)
+
+        return qs.none()  # Si no tiene permisos o centro, no muestra nada
+
+    def usuari_centre(self, obj):
+        # Muestra el centro del usuario relacionado con el préstamo
+        return obj.usuari.centre
+    usuari_centre.short_description = "Centre"
+
 
 # ============================
 # ADMIN PARA RESERVA
