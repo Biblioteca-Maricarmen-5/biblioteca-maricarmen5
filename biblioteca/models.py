@@ -107,6 +107,27 @@ class Exemplar(models.Model):
     exclos_prestec = models.BooleanField(default=False)
     baixa = models.BooleanField(default=False)
     centre = models.ForeignKey('Centre', on_delete=models.PROTECT)
+    codi = models.CharField(max_length=20, unique=True, editable=False)
+
+
+
+    def save(self, *args, **kwargs):
+        if not self.codi:
+            any_actual = now().year
+            prefix = f"EX-{any_actual}"
+            ultims = Exemplar.objects.filter(codi__startswith=prefix).order_by('-codi')
+
+            if ultims.exists():
+                ultim_num = int(ultims.first().codi.split('-')[-1])
+            else:
+                ultim_num = 0
+
+            nou_num = str(ultim_num + 1).zfill(6)
+            self.codi = f"{prefix}-{nou_num}"
+
+        super().save(*args, **kwargs)
+    
+    
     def __str__(self):
         return "REG:{} - {}".format(self.registre,self.cataleg.titol)
 

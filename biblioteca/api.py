@@ -2,6 +2,7 @@
 from django.db.models import Q
 from django.contrib.auth import authenticate, get_user_model
 from django.shortcuts import get_object_or_404
+from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.conf import settings
 from django.http import JsonResponse
@@ -10,6 +11,7 @@ from django.core.exceptions import ValidationError
 from ninja import NinjaAPI, Schema, Field, Router
 from ninja.security import HttpBasicAuth, HttpBearer
 from ninja.files import UploadedFile
+from ninja.errors import HttpError
 
 import secrets
 import hashlib
@@ -17,8 +19,10 @@ import csv
 import traceback
 import os
 import re
+import base64
+import uuid
 
-from typing import List, Optional, Union, Dict
+from typing import List, Optional, Union, Dict, Optional
 
 from pydantic import validator
 
@@ -157,10 +161,21 @@ def verificar_cambios(request, data: PerfilUpdateSchema):
 
 @api.patch("/perfil/")
 def actualizar_perfil(request, data: PerfilUpdateSchema):
-    user = get_object_or_404(User, username=data.username)
-    
-    if data.imatge is not None:
-        user.imatge = data.imatge  
+    user = get_object_or_404(Usuari, username=data.username)
+
+    # Solo decodificamos si es un Data URI (imagen nueva)
+    if data.imatge and data.imatge.startswith("data:"):
+        try:
+            header, b64data = data.imatge.split(",", 1)
+            ext = header.split(";")[0].split("/")[1]  # jpeg, png...
+            file_data = base64.b64decode(b64data)
+            filename = f"{uuid.uuid4()}.{ext}"
+            user.imatge.save(filename, ContentFile(file_data), save=False)
+        except Exception as e:
+            raise HttpError(400, f"Error procesando imagen: {e}")
+
+    # Para rutas existentes, no hacemos nada
+
     if data.email is not None:
         user.email = data.email
     if data.telefon is not None:
@@ -168,7 +183,6 @@ def actualizar_perfil(request, data: PerfilUpdateSchema):
 
     user.save()
     return {"success": True}
-
 
 
 # catalogo y ejemplares
@@ -518,6 +532,43 @@ def subir_documento(request, archivo: UploadedFile):
         "errores": errores
     }
 
+
+# busqueda de ejemplares para las etiquetas
+
+# class EtiquetaOut(Schema):
+#     id: int
+#     registre: Optional[str]
+#     cdu: Optional[str]
+#     centre_name: str
+
+# @api.get("/busqueda_etiquetas", response=List[EtiquetaOut])
+# def buscar_etiquetas(request, registre: Optional[str] = None, min_id: Optional[int] = None, max_id: Optional[int] = None):
+#     qs = Exemplar.objects.select_related('cataleg', 'centre')
+#     if registre:
+#         qs = qs.filter(registre__icontains=registre)
+#     if min_id is not None and max_id is not None:
+#         qs = qs.filter(id__gte=min_id, id__lte=max_id)
+#     results = []
+#     for ex in qs:
+#         results.append(EtiquetaOut(
+#             id=ex.id,
+#             registre=ex.registre,
+#             cdu=ex.cataleg.CDU,
+#             centre_name=ex.centre.name
+#         ))
+#     return results
+
+class CDUResponse(Schema):
+    registre: str
+    cdu: Optional[str]
+
+@api.get("/get_cdu", response=Optional[CDUResponse])
+def get_cdu_by_registre(request, registre: str):
+    try:
+        exemplar = Exemplar.objects.select_related("cataleg").get(registre=registre)
+        return CDUResponse(registre=exemplar.registre, cdu=exemplar.cataleg.CDU)
+    except Exemplar.DoesNotExist:
+        return None
 
 
 

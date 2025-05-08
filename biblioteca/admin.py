@@ -131,8 +131,8 @@ class ExemplarInlineFormSet(BaseInlineFormSet):
 class ExemplarsInline(admin.TabularInline):
     model = Exemplar
     extra = 1
-    readonly_fields = ('pk',)
-    fields = ('pk', 'registre', 'exclos_prestec', 'baixa', 'centre')
+    readonly_fields = ('pk','codi')
+    fields = ('pk','codi', 'registre', 'exclos_prestec', 'baixa', 'centre')
     formset = ExemplarInlineFormSet
 
     def get_formset(self, request, obj=None, **kwargs):
