@@ -425,15 +425,40 @@ def subir_documento(request, archivo: UploadedFile):
 
 # busqueda de ejemplares para las etiquetas
 
-@api.get("/busqueda_ejemplars", response=List[ExemplarOut])
-def buscar_por_registre(request, registre: str):
-    qs = Exemplar.objects.filter(registre__icontains=registre).select_related('cataleg')
-    return qs
+# class EtiquetaOut(Schema):
+#     id: int
+#     registre: Optional[str]
+#     cdu: Optional[str]
+#     centre_name: str
 
-@api.get("/busqueda_ejemplars/range", response=List[ExemplarOut])
-def buscar_por_rango(request, min: int, max: int):
-    qs = Exemplar.objects.filter(id__gte=min, id__lte=max).select_related('cataleg')
-    return qs
+# @api.get("/busqueda_etiquetas", response=List[EtiquetaOut])
+# def buscar_etiquetas(request, registre: Optional[str] = None, min_id: Optional[int] = None, max_id: Optional[int] = None):
+#     qs = Exemplar.objects.select_related('cataleg', 'centre')
+#     if registre:
+#         qs = qs.filter(registre__icontains=registre)
+#     if min_id is not None and max_id is not None:
+#         qs = qs.filter(id__gte=min_id, id__lte=max_id)
+#     results = []
+#     for ex in qs:
+#         results.append(EtiquetaOut(
+#             id=ex.id,
+#             registre=ex.registre,
+#             cdu=ex.cataleg.CDU,
+#             centre_name=ex.centre.name
+#         ))
+#     return results
+
+class CDUResponse(Schema):
+    registre: str
+    cdu: Optional[str]
+
+@api.get("/get_cdu", response=Optional[CDUResponse])
+def get_cdu_by_registre(request, registre: str):
+    try:
+        exemplar = Exemplar.objects.select_related("cataleg").get(registre=registre)
+        return CDUResponse(registre=exemplar.registre, cdu=exemplar.cataleg.CDU)
+    except Exemplar.DoesNotExist:
+        return None
 
 
 
