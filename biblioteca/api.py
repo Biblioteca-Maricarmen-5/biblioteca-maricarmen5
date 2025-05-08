@@ -629,6 +629,7 @@ class CrearPrestecRequest(Schema):
     usuari: int
     exemplar: int
     data_prestec: Optional[date] = None
+    data_retorn: Optional[date] = None
     anotacions: Optional[str] = None
 
 @api.post("/crear_prestec")
@@ -642,6 +643,7 @@ def crear_prestec(request, payload: CrearPrestecRequest):
             usuari=usuari,
             exemplar=exemplar,
             data_prestec=payload.data_prestec or date.today(),
+            data_retorn=payload.data_retorn,
             anotacions=payload.anotacions or ""
         )
 
