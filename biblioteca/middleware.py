@@ -1,8 +1,7 @@
 import logging
+import re
 from django.conf import settings
 from django.shortcuts import render
-
-
 
 logger = logging.getLogger(__name__)
 
@@ -10,12 +9,18 @@ class StrictAPIAccessMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
         self.allowed_origins = set(getattr(settings, 'CORS_ALLOWED_ORIGINS', []))
+        self.restricted_paths = [
+            re.compile(r'^/api/'),                          # Bloquea todas las rutas que comienzan con /api/
+            re.compile(r'^/media/?$'),                       # Bloquea exactamente /media o /media/
+            re.compile(r'^/media/temp(/|$)'),                # Bloquea /media/temp y cualquier cosa dentro
+            re.compile(r'^/media/usuaris(/|$)'),             # Bloquea /media/usuaris y cualquier cosa dentro
+        ]
 
     def __call__(self, request):
         path = request.path
-        rutas_restringidas = ['/api/', '/media/']  # rutas protegidas
 
-        if any(path.startswith(ruta) for ruta in rutas_restringidas):
+        # Si la ruta está en la lista de rutas restringidas
+        if any(p.match(path) for p in self.restricted_paths):
             origin = request.headers.get('Origin')
             referer = request.headers.get('Referer')
 
