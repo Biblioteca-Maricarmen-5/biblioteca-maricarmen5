@@ -24,7 +24,17 @@ import uuid
 
 from typing import List, Optional, Union, Dict, Optional
 
-from pydantic import validator
+from pydantic import validator, BaseModel
+
+#para google
+from google.oauth2 import id_token  # Necesaria para la verificación del token de Google
+from google.auth.transport.requests import Request  # Necesaria para realizar la solicitud HTTP durante la verificación
+import traceback  # Para imprimir el traceback completo en caso de error
+from django.contrib.auth.models import Group
+from django.utils import timezone
+from datetime import timedelta
+from django.core.exceptions import ObjectDoesNotExist
+from google.auth.exceptions import GoogleAuthError
 
 # Importación de modelos (si usas wildcard, de lo contrario importa solo lo que necesites)
 from .models import *
@@ -35,6 +45,18 @@ api = NinjaAPI()
 router = Router()
 
 User = get_user_model()
+
+
+#google
+class GoogleAuthSchema(BaseModel):
+    token: str   
+
+
+# Esquema de respuesta
+class AuthResponse(Schema):
+    exists: bool
+    grupos: List[str] = []
+    token: Optional[str] = None  
 
 # Autenticació bàsica
 class BasicAuth(HttpBasicAuth):
@@ -57,22 +79,68 @@ class AuthBearer(HttpBearer):
         except User.DoesNotExist:
             return None
 
+from google.oauth2 import id_token
+from google.auth.transport.requests import Request
+
+def authenticate_google_token(token):
+    try:
+        # Verificar el token de Google
+        idinfo = id_token.verify_oauth2_token(
+            token,
+            Request(),
+            '237357284961-dgekrp016uek3gc0qlch2683ivr68qgq.apps.googleusercontent.com' 
+        )
+        return idinfo
+    except ValueError:
+        return None
+
+@api.post("/auth/google/")
+def google_auth(request, payload: GoogleAuthSchema):
+    # Verifica el token aquí
+    user_data = authenticate_google_token(payload.token)
+    if not user_data:
+        return {"error": "Token inválido"}
+
+    # El resto de la lógica, por ejemplo, comprobar si el usuario existe, etc.
+    user = get_user_or_create(user_data['email'])
+    return {"user": user.email, "token": user.auth_token}
+
+
+
+
+
+#CLIENT_ID = "237357284961-dgekrp016uek3gc0qlch2683ivr68qgq.apps.googleusercontent.com"
+#CLIENT_ID = "604749346675-4h7bk1n3b5s32ktfhmj9ddchctnenl4f.apps.googleusercontent.com"
+
+
+
+def generate_session_token(user):
+    """
+    Genera un token de sesión seguro y lo asigna al usuario.
+    """
+    token = secrets.token_urlsafe(64) 
+    user.auth_token = token           
+    user.save()                        
+    return token
+
+
+
+
 # Endpoint per obtenir un token
 @api.get("/token", auth=BasicAuth())
 @api.get("/token/", auth=BasicAuth())
 def obtenir_token(request):
     return {"token": request.auth}
 
-# Esquema de respuesta
-class AuthResponse(Schema):
-    exists: bool
-    grupos: List[str] = []
-    token: Optional[str] = None  
 
 # Esquema para recibir las credenciales
 class LoginSchema(Schema):
     username: str
     password: str
+
+
+
+
 
 @api.post("/login", response=AuthResponse)
 def login(request, payload: LoginSchema):
@@ -91,16 +159,28 @@ def login(request, payload: LoginSchema):
             token = f"{grupo_encriptado}_{telefon_encriptado}"
         else:
             token = None
+         
+       
+
 
         return {
-            "exists": True,
-            "grupos": grupos,
-            "token": token
+            #"exists": True,
+            #"grupos": grupos,
+            #"token": token
+             "exists": True,
+             "grupos": [group.name for group in user.groups.all()],
+             "token": token,
+             "user": {
+                 "email": user.email 
+             }
         }
     else:
         return {"exists": False, "grupos": [], "token": None}
 
-# Esquema de respuesta para perfil
+
+
+
+
 class UserProfileRequest(Schema):
     username: str
 
@@ -113,6 +193,7 @@ class UserProfileResponse(Schema):
     imatge: Optional[str] = None
     grupos: list[str]
     telefon: Optional[str] = None
+
 
 @api.post("/perfil/", response=UserProfileResponse)
 def perfil(request, data: UserProfileRequest):

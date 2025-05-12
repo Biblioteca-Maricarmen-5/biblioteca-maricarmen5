@@ -146,3 +146,7 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+# Configuración para autenticación social
+GOOGLE_OAUTH2_CLIENT_ID = "237357284961-dgekrp016uek3gc0qlch2683ivr68qgq.apps.googleusercontent.com"
+
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'

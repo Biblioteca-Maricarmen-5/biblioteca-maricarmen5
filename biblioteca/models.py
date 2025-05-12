@@ -154,8 +154,10 @@ class Usuari(AbstractUser):
     centre = models.ForeignKey(Centre,on_delete=models.SET_NULL,null=True,blank=True)
     grup = models.ForeignKey(Grup,on_delete=models.SET_NULL,null=True,blank=True)
     imatge = models.ImageField(upload_to='usuaris/',null=True,blank=True)
-    auth_token = models.CharField(max_length=32,blank=True,null=True)
+    auth_token = models.CharField(max_length=64,blank=True,null=True)
     telefon = models.CharField(max_length=20,blank=True,null=True)
+    
+
     def save(self, *args, **kwargs):
         # Si el usuario no tiene ID (se está creando)
         is_new = self.pk is None
